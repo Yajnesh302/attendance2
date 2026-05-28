@@ -1,0 +1,373 @@
+<%@ Master Language="C#" AutoEventWireup="true" CodeBehind="Site.master.cs" Inherits="AttendanceApp.SiteMaster" %>
+
+<!DOCTYPE html>
+<html lang="en">
+<head runat="server">
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title><asp:ContentPlaceHolder ID="TitleContent" runat="server"></asp:ContentPlaceHolder> - Attendance System</title>
+    
+    <!-- Custom fonts for this template-->
+    <link href="Static/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css" />
+    <!-- Custom styles for this template-->
+    <link href="Static/css/sb-admin-2.min.css" rel="stylesheet" />
+
+    <style>
+        body { color: #111 !important; }
+        .sticky-top {
+            position: -webkit-sticky !important;
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 1030 !important;
+        }
+        /* Sticky Top Nav for pages without sidebar */
+        body.sticky-nav-page .navbar-custom {
+            position: fixed !important;
+            top: 0 !important;
+            right: 0 !important;
+            left: 0 !important;
+            z-index: 1030 !important;
+        }
+        body.sticky-nav-page .container-main {
+            margin-top: 60px !important; /* Offset by navbar height */
+        }
+        .navbar-custom {
+            background-color: #4f46e5;
+            background-image: linear-gradient(180deg,#4f46e5 10%,#3730a3 100%);
+            padding: 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            height: 60px;
+        }
+        .navbar-custom .navbar-brand {
+            color: white;
+            font-weight: bold;
+            padding: 15px 20px;
+            font-size: 1.25rem;
+        }
+        .btn-logout {
+            background-color: #e74a3b;
+            color: white;
+            border: none;
+            padding: 6px 15px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+        .btn-logout:hover {
+            background-color: #c0392b;
+            color: white;
+        }
+        .container-main {
+            padding: 20px;
+            background-color: #f8f9fc;
+            min-height: calc(100vh - 60px);
+        }
+        .app-sidebar {
+            width: 240px;
+            background: linear-gradient(180deg, #1a237e 0%, #283593 60%, #1565c0 100%);
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.2);
+            min-height: 100vh;
+        }
+        .sidebar-profile {
+            padding: 20px 16px 16px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+        }
+        .sidebar-avatar {
+            width: 140px;
+            height: 180px;
+            border-radius: 6px;
+            border: 3px solid rgba(255,255,255,0.45);
+            object-fit: cover;
+            margin-bottom: 12px;
+        }
+        .sidebar-name {
+            color: #fff;
+            font-size: 0.9rem;
+            font-weight: 700;
+            line-height: 1.4;
+        }
+        .sidebar-role-badge {
+            display: inline-block;
+            margin-top: 10px;
+            background: rgba(255,255,255,0.15);
+            color: #a5d6a7;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 3px 12px;
+            border-radius: 20px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .header-nav-links .nav-link {
+            padding: 6px 12px !important;
+            font-size: 0.85rem;
+            border-radius: 4px;
+            transition: background-color 0.2s, color 0.2s;
+            opacity: 0.85;
+        }
+        .header-nav-links .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            color: #fff !important;
+            opacity: 1;
+        }
+        
+        /* Global Elegant Toast Container at Top Right */
+        #toast-container {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 99999;
+            pointer-events: none;
+        }
+        
+        .modern-toast {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px) saturate(180%);
+            -webkit-backdrop-filter: blur(12px) saturate(180%);
+            border-radius: 12px;
+            padding: 14px 20px;
+            min-width: 320px;
+            max-width: 420px;
+            color: #1e293b;
+            font-size: 0.92rem;
+            font-weight: 600;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+            transform: translateX(120%);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+            opacity: 0;
+            pointer-events: auto;
+            border-left: 6px solid #64748b;
+        }
+        
+        .modern-toast.toast-show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        
+        .modern-toast.toast-hide {
+            transform: translateY(-20px) scale(0.9);
+            opacity: 0;
+        }
+        
+        .toast-icon {
+            font-size: 1.35rem;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Toast Alert States with Curated Color Accents */
+        .toast-success {
+            border-left-color: #10b981;
+            background: rgba(240, 253, 250, 0.95);
+        }
+        .toast-success .toast-icon {
+            color: #10b981;
+        }
+        
+        .toast-error {
+            border-left-color: #ef4444;
+            background: rgba(254, 242, 242, 0.95);
+        }
+        .toast-error .toast-icon {
+            color: #ef4444;
+        }
+        
+        .toast-warning {
+            border-left-color: #f59e0b;
+            background: rgba(255, 251, 235, 0.95);
+        }
+        .toast-warning .toast-icon {
+            color: #f59e0b;
+        }
+        
+        .toast-info {
+            border-left-color: #3b82f6;
+            background: rgba(239, 246, 255, 0.95);
+        }
+        .toast-info .toast-icon {
+            color: #3b82f6;
+        }
+        
+        .toast-close-btn {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 2px;
+            line-height: 1;
+            transition: color 0.15s ease;
+            margin-left: auto;
+        }
+        .toast-close-btn:hover {
+            color: #475569;
+        }
+    </style>
+    <script>
+        // Global Upgraded Toast Notification System
+        function showToast(msg, type = 'info') {
+            let container = document.getElementById("toast-container");
+            if (!container) {
+                container = document.createElement("div");
+                container.id = "toast-container";
+                document.body.appendChild(container);
+            }
+
+            const toast = document.createElement("div");
+            toast.className = `modern-toast toast-${type}`;
+            
+            let iconClass = "fas fa-info-circle";
+            if (type === "success") iconClass = "fas fa-check-circle";
+            else if (type === "warning") iconClass = "fas fa-exclamation-triangle";
+            else if (type === "error") iconClass = "fas fa-times-circle";
+
+            toast.innerHTML = `
+                <div class="toast-icon"><i class="${iconClass}"></i></div>
+                <div style="flex-grow: 1; padding-right: 8px;">${msg}</div>
+                <button type="button" class="toast-close-btn" onclick="this.parentElement.classList.remove('toast-show'); setTimeout(() => this.parentElement.remove(), 400);">&times;</button>
+            `;
+
+            container.appendChild(toast);
+            
+            // Trigger reflow to run transition
+            toast.offsetHeight;
+            toast.classList.add("toast-show");
+
+            // Auto dismiss
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.classList.remove("toast-show");
+                    toast.classList.add("toast-hide");
+                    setTimeout(() => {
+                        toast.remove();
+                    }, 400);
+                }
+            }, 4000);
+        }
+    </script>
+    <asp:ContentPlaceHolder ID="HeadContent" runat="server"></asp:ContentPlaceHolder>
+</head>
+<%
+    string bodyClass = "";
+    string rawUrl = Request.RawUrl.ToLower();
+    if (rawUrl.Contains("attendance.aspx")) {
+        bodyClass = "attendance-page";
+    } else if (rawUrl.Contains("dashboard.aspx") || rawUrl.Contains("dashboard")) {
+        bodyClass = "dashboard-page";
+    } else {
+        bodyClass = "sticky-nav-page";
+    }
+%>
+<body id="page-top" class="<%= bodyClass %>">
+    <form id="form1" runat="server" enctype="multipart/form-data">
+        <div id="wrapper" class="d-flex">
+            <!-- Sidebar -->
+            <asp:PlaceHolder ID="phSidebar" runat="server">
+                <div class="app-sidebar bg-gradient-primary sidebar-dark">
+                    <!-- Profile block -->
+                    <div class="sidebar-profile">
+                        <div class="sidebar-logo-container" style="text-align: center; margin-bottom: 16px; padding: 0 8px;">
+                            <div style="background: white; border-radius: 8px; padding: 8px 12px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+                                <img src="Static/Images/newlrdelogo.png" alt="LRDE Logo" style="max-width: 110px; height: auto; display: block; margin: 0 auto;" />
+                            </div>
+                        </div>
+                        <hr style="border-top: 1px solid rgba(255, 255, 255, 0.18); margin: 12px 0 16px; width: 100%;" />
+                        <img src="http://windflower.lrde.com/empphotos/Dsc_<%=Session["PCNO"]%>.jpg"
+                              id="imgavtr" class="sidebar-avatar" alt="Avatar"
+                              onerror="this.onerror=null; this.src='Static/Images/default_avatar.png';" />
+                        <div class="sidebar-name">
+                            <%=Session["Name"] != null ? Session["Name"].ToString() : "User" %>
+                        </div>
+                        <% if (Session["Designation"] != null && !string.IsNullOrEmpty(Session["Designation"].ToString())) { %>
+                        <div class="sidebar-designation" style="font-size: 0.8rem; color: #cbd5e1; margin-top: 2px; margin-bottom: 8px; font-weight: 500; text-align: center;">
+                            <%=Session["Designation"].ToString() %>
+                        </div>
+                        <% } %>
+                        <span class="sidebar-role-badge">
+                            <i id="myfw" runat="server" class="fas fa-user"></i>&nbsp;<label runat="server" id="lblUserName"></label>
+                        </span>
+                    </div>
+                </div>
+            </asp:PlaceHolder>
+
+            <!-- Content Wrapper -->
+            <div id="content-wrapper" class="d-flex flex-column flex-grow-1">
+                <!-- Main Content -->
+                <div id="content">
+                    <!-- Topbar -->
+                    <nav class="navbar navbar-expand navbar-light topbar <%= Request.RawUrl.ToLower().Contains("attendance.aspx") ? "static-top" : "sticky-top" %> navbar-custom">
+                        <span class="navbar-brand text-white ml-3 font-weight-bold">
+                            <i class="fas fa-building mr-2"></i> HR System
+                        </span>
+
+                        <!-- Top Navigation Links (visible only on non-dashboard pages) -->
+                        <asp:PlaceHolder ID="phTopNav" runat="server">
+                            <ul class="navbar-nav mr-auto ml-4 align-items-center header-nav-links">
+                                <li class="nav-item">
+                                    <a class="nav-link text-white font-weight-bold" href="Dashboard.aspx"><i class="fas fa-tachometer-alt mr-1"></i> Dashboard</a>
+                                </li>
+                                <asp:PlaceHolder ID="phEmployeeMaster" runat="server">
+                                    <li class="nav-item ml-3">
+                                        <a class="nav-link text-white font-weight-bold" href="Employee.aspx"><i class="fas fa-users mr-1"></i> Employee Master</a>
+                                    </li>
+                                </asp:PlaceHolder>
+                                <li class="nav-item ml-3">
+                                    <a class="nav-link text-white font-weight-bold" href="Attendance.aspx"><i class="fas fa-calendar-check mr-1"></i> Attendance</a>
+                                </li>
+                                <li class="nav-item ml-3">
+                                    <a class="nav-link text-white font-weight-bold" href="Ledger.aspx"><i class="fas fa-book mr-1"></i> Ledger</a>
+                                </li>
+                                <asp:PlaceHolder ID="phCalculation" runat="server">
+                                    <li class="nav-item ml-3">
+                                        <a class="nav-link text-white font-weight-bold" href="Calculation.aspx"><i class="fas fa-calculator mr-1"></i> Calculation</a>
+                                    </li>
+                                </asp:PlaceHolder>
+                            </ul>
+                        </asp:PlaceHolder>
+
+                        <!-- Topbar User Information -->
+                        <ul class="navbar-nav ml-auto align-items-center">
+                            <li class="nav-item mr-3">
+                                <span class="text-white font-weight-bold">Welcome, <%=Session["Name"] %><%= Session["Designation"] != null && !string.IsNullOrEmpty(Session["Designation"].ToString()) ? " (" + Session["Designation"].ToString() + ")" : "" %></span>
+                            </li>
+                            <li class="nav-item">
+                                <asp:Button ID="btnLogout" runat="server" Text="Logout" CssClass="btn-logout" OnClick="btnLogout_Click" CausesValidation="false" style="border-radius: 6px; font-weight: bold; margin-right: 15px;" />
+                            </li>
+                        </ul>
+                    </nav>
+                    <!-- End of Topbar -->
+
+                    <!-- Begin Page Content -->
+                    <div class="container-main">
+                        <asp:ContentPlaceHolder ID="MainContent" runat="server"></asp:ContentPlaceHolder>
+                    </div>
+                </div>
+                <!-- End of Main Content -->
+            </div>
+        </div>
+
+        <!-- Bootstrap core JavaScript-->
+        <script src="Static/jquery/jquery.min.js"></script>
+        <script src="Static/bootstrap/js/bootstrap.bundle.min.js"></script>
+        <!-- Core plugin JavaScript-->
+        <script src="Static/jquery-easing/jquery.easing.min.js"></script>
+        <!-- Custom scripts for all pages-->
+        <script src="Static/js/sb-admin-2.min.js"></script>
+        <script src="Static/js/sweetalert2@11.js"></script>
+    </form>
+</body>
+</html>

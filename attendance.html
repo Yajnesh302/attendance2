@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Professional Attendance System</title>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+<style>
+body{
+    font-family:Arial;
+    background:#f5f6fa;
+    margin:0;
+    padding:10px;
+    height:100vh;
+    overflow:hidden;
+}
+
+.header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.controls{
+    margin:10px 0;
+    background:#fff;
+    padding:10px;
+    border-radius:8px;
+    box-shadow:0 2px 5px rgba(0,0,0,0.05);
+    display:flex;
+    gap:5px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+
+.controls select,
+.controls input,
+.controls button{
+    padding:5px;
+    font-size:12px;
+}
+
+.wrapper{
+    height:72vh;
+    overflow:auto;
+    border:1px solid #ccc;
+    background:white;
+}
+
+table{
+    border-collapse:collapse;
+    width:max-content;
+    min-width:100%;
+}
+
+th,td{
+    border:1px solid #ddd;
+    padding:4px;
+    text-align:center;
+    font-size:12px;
+    min-width:35px;
+}
+
+th{
+    position:sticky;
+    top:0;
+    background:#f0f2f5;
+    z-index:10;
+}
+
+.green{
+    background:#d9f7be !important;
+}
+
+.red{
+    background:#ffa39e !important;
+}
+
+.royal-blue{
+    background:#4169E1 !important;
+    color:white !important;
+}
+
+.light-yellow{
+    background:#fff9c4 !important;
+}
+
+.gray{
+    background:#e5e7eb !important;
+    color:#666;
+}
+
+.selected-row{
+    background:#add8e6 !important;
+}
+
+input.att{
+    width:28px;
+    text-align:center;
+    border:1px solid #999;
+    font-weight:bold;
+    background:transparent;
+    outline:none;
+}
+
+.label-text{
+    display:block;
+    font-size:9px;
+    font-weight:bold;
+    color:#333;
+    margin-top:1px;
+}
+
+select.leave-opt{
+    font-size:9px;
+    display:block;
+    width:100%;
+}
+
+#ledger-pop{
+    position:fixed;
+    bottom:20px;
+    right:20px;
+    background:#111827;
+    color:white;
+    padding:12px 18px;
+    border-radius:8px;
+    display:none;
+    z-index:9999;
+    font-size:13px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.3);
+}
+</style>
+</head>
+
+<body onclick="if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{})">
+
+<div id="ledger-pop"></div>
+
+<div class="header">
+<h2>Attendance Management</h2>
+<button onclick="location='dashboard.html'" style="background:#4f46e5;color:white;border:none;padding:5px 10px;border-radius:4px;cursor:pointer">
+Back
+</button>
+</div>
+
+<div class="controls">
+Year:
+<select id="yearSel"></select>
+
+Month:
+<select id="monthSel"></select>
+
+Cat:
+<select id="catSel">
+<option>Skilled</option>
+<option>Semi-Skilled</option>
+<option>Unskilled</option>
+</select>
+
+Search:
+<input id="search" oninput="render()" placeholder="ID/Name" style="width:100px">
+
+<div id="adminControls" style="display:inline-flex; gap:5px; align-items:center;">
+Holiday:
+<input id="holidayInput" style="width:60px" placeholder="14,26">
+
+<button onclick="applyHoliday()" style="background:#4169E1;color:white">Apply</button>
+<button onclick="removeHoliday()" style="background:red;color:white">Remove</button>
+<button onclick="globalAdjust()" style="background:#9333ea;color:white">Global Adjust</button>
+</div>
+
+<button onclick="save()" style="background:#28a745;color:white">Save</button>
+<button onclick="downloadExcel()" style="background:#1d6f42;color:white">Excel Download</button>
+</div>
+
+<div class="wrapper">
+<table id="attTable">
+<thead id="thead"></thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+
+<script>
+const yS=yearSel, mS=monthSel, cS=catSel, tb=tbody, th=thead;
+const role = localStorage.getItem("role") || "ADMIN";
+const currentYear = new Date().getFullYear();
+
+// Init Date Controls
+for(let y=currentYear-2; y<=currentYear+5; y++){
+    yS.innerHTML+=`<option value="${y}">${y}</option>`;
+}
+["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].forEach((m,i)=>{
+    mS.innerHTML+=`<option value="${i}">${m}</option>`;
+});
+yS.value=currentYear;
+mS.value=new Date().getMonth();
+
+// Role Controls Visibility
+if(role === "DEPARTMENT") {
+    document.addEventListener("DOMContentLoaded", () => {
+        const ac = document.getElementById("adminControls");
+        if(ac) ac.style.display = "none";
+    });
+}
+
+let attendance = JSON.parse(localStorage.getItem("attendance")||"{}");
+let ledgerData = JSON.parse(localStorage.getItem("ledger") || "{}");
+
+function key(y=yS.value,m=mS.value){
+    return `${y}-${m}-${cS.value}`;
+}
+
+function showLedgerPop(msg){
+    const pop=document.getElementById("ledger-pop");
+    pop.innerText=msg;
+    pop.style.display="block";
+    clearTimeout(window.popTimer);
+    window.popTimer=setTimeout(()=>{ pop.style.display="none"; },2000);
+}
+
+function employees(){
+    const all = JSON.parse(localStorage.getItem("employees")||"[]");
+    const dept = localStorage.getItem("department");
+    const search = document.getElementById("search").value.toLowerCase();
+    let list = all.filter(e=>e.category===cS.value);
+
+    if(role==="DEPARTMENT"){
+        list = list.filter(e=>e.department===dept);
+    }
+    if(search){
+        list = list.filter(e=>e.id.toLowerCase().includes(search) || e.name.toLowerCase().includes(search));
+    }
+    return list;
+}
+
+function globalAdjust(){
+    attendance[key()] ??= {};
+    const val = prompt(`Global Adjustment\n\nExamples:\n1\n-1\n2\n-2\n0.5\n-0.5`);
+    if(val===null || val==="") return;
+    const num = Number(val);
+    if(isNaN(num)){ alert("Invalid Number"); return; }
+    attendance[key()].globalAdjustment = num;
+    saveS();
+    showLedgerPop(`Global Adjustment ${num>0?'+':''}${num} Applied`);
+    render();
+}
+
+function getRefDays(y,m){
+    let d=new Date(y,m,0), arr=[];
+    while(d.getDay()!=6){
+        if(d.getDay()!=0){ arr.unshift(new Date(d)); }
+        d.setDate(d.getDate()-1);
+    }
+    return arr;
+}
+
+function render(){
+    const y=+yS.value;
+    const m=+mS.value;
+    const emps=employees();
+    const refs=getRefDays(y,m);
+    const days=new Date(y,m+1,0).getDate();
+    attendance[key()] ??= {};
+
+    let head=`<tr><th>ID</th><th>Name</th>`;
+    refs.forEach(d=>{
+        head+=`<th class="gray">${String(d.getDate()).padStart(2,'0')}<br>${d.toLocaleDateString('en',{month:'short', weekday:'short'})}</th>`;
+    });
+
+    for(let i=1;i<=days;i++){
+        let d=new Date(y,m,i);
+        if(d.getDay()!=0){
+            head+=`<th>${String(i).padStart(2,'0')}<br>${d.toLocaleDateString('en',{month:'short', weekday:'short'})}</th>`;
+        }
+    }
+    head+=`<th>Present Days</th><th>Adjustment</th><th>Total Days</th></tr>`;
+    th.innerHTML=head;
+
+    let rows="";
+    emps.forEach(emp=>{
+        attendance[key()][emp.id] ??= {};
+        let count=0;
+
+        let r=`<tr onclick="selectRow(this)"><td>${emp.id}</td><td style="text-align:left;padding-left:10px;">${emp.name}</td>`;
+
+        refs.forEach(d=>{
+            let py=d.getFullYear(), pm=d.getMonth(), pd=d.getDate();
+            let prevMonthKey=`${py}-${pm}-${cS.value}`;
+            let val=attendance[prevMonthKey]?.[emp.id]?.[pd]?.val ?? "";
+            r+=`<td class="gray"><input class="att" value="${val}" readonly tabindex="-1"></td>`;
+        });
+
+        for(let i=1;i<=days;i++){
+            let d=new Date(y,m,i);
+            if(d.getDay()==0) continue;
+
+            const cell=attendance[key()][emp.id][i] || {};
+            let cls="", label="", drop="", v=cell.val??"";
+
+            if(cell.holiday){
+                cls="royal-blue";
+                count++;
+                v="H";
+            }
+            else if(cell.leave === "Carried") {
+                cls="green";
+                count++;
+                v="1";
+            }
+            else if(cell.leave === "Paired Paid") {
+                cls="light-yellow";
+                count++;
+                v="1";
+            }
+            else if(cell.leave === "Paired Unpaid") {
+                cls="light-yellow";
+                v="0";
+            }
+            else if(cell.val==1){
+                cls="green";
+                count++;
+            }
+            else if(cell.val===0.5){
+                cls="light-yellow";
+                count += 0.5;
+            }
+            else if(cell.val===0){
+                cls="red";
+            }
+
+            // Interface Generation mapping based on Role Access
+            if(cell.leave === "Carried" || cell.leave === "Paired Paid" || cell.leave === "Paired Unpaid") {
+                drop=`<select class="leave-opt" onchange="setLeave('${emp.id}',${i},this.value)">
+                <option value="${cell.leave}" selected>${cell.leave}</option>
+                <option value="Reset">Reset</option>
+                </select>`;
+            }
+            else if(cell.val===0.5){
+                drop=`<select class="leave-opt" onchange="setLeave('${emp.id}',${i},this.value)">
+                <option value=""></option>
+                <option value="Carried">Carried</option>
+                <option value="Pairing">Pairing</option>
+                </select>`;
+            }
+            else if(cell.val===0 && d.getDay()!=6){
+                drop=`<select class="leave-opt" onchange="setLeave('${emp.id}',${i},this.value)">
+                <option value=""></option>
+                <option value="Paid" ${cell.leave=="Paid"?"selected":""}>Paid</option>
+                <option value="Unpaid" ${cell.leave=="Unpaid"?"selected":""}>Unpaid</option>
+                </select>`;
+            }
+
+            if(cell.leave){
+                label=`<span class="label-text">${cell.leave}</span>`;
+            }
+
+            r+=`<td class="${cls}">
+            <input class="att" value="${v}" oninput="setVal('${emp.id}',${i},this.value)">
+            ${label}${drop}
+            </td>`;
+        }
+
+        const adj = attendance[key()].globalAdjustment || 0;
+        const finalTotal = count + adj;
+
+        rows+=`${r}<td>${count}</td><td style="color:#9333ea;font-weight:bold;">${adj>0?'+':''}${adj}</td><td><b>${finalTotal}</b></td></tr>`;
+    });
+    tb.innerHTML=rows;
+}
+
+function setVal(id,day,v){
+    // Intercept Department typed '5' and process as 0.5
+    if(v === "5"){
+        v = "0.5";
+    }
+    if(v!=="" && v!=="0" && v!=="1" && v!=="0.5"){
+        event.target.value="";
+        return;
+    }
+    let num=(v==="")?null:Number(v);
+    attendance[key()][id][day]={val:num};
+
+    if(num===0.5){
+        showLedgerPop("0.5 Half Day Added");
+    }
+
+    calcSat(id);
+    saveS();
+
+    const activeIdx = event.target.closest("td").cellIndex;
+    const activeRow = event.target.closest("tr").rowIndex;
+    render();
+
+    if(v!==""){
+        const nextCell = tb.rows[activeRow-1]?.cells[activeIdx+1];
+        const nextInp = nextCell?.querySelector(".att");
+        if(nextInp){ nextInp.focus(); nextInp.select(); }
+    }else{
+        const curCell = tb.rows[activeRow-1]?.cells[activeIdx];
+        curCell?.querySelector(".att")?.focus();
+    }
+}
+
+function setLeave(id,day,v){
+    let cell = attendance[key()][id][day];
+    ledgerData[id] ??= { pendingHalf: 0, totalPaid: 15, paidUsed: 0 };
+
+    if(v === "Reset") {
+        if(cell.leave === "Carried") ledgerData[id].pendingHalf -= 0.5;
+        if(cell.leave === "Paired Paid") {
+            ledgerData[id].pendingHalf += 0.5;
+            ledgerData[id].paidUsed -= 1;
+        }
+        if(cell.leave === "Paired Unpaid") ledgerData[id].pendingHalf += 0.5;
+        if(cell.leave === "Paid") ledgerData[id].paidUsed -= 1;
+        
+        cell.val = (cell.leave.includes("Paired") || cell.leave === "Carried") ? 0.5 : 0;
+        cell.leave = "";
+    }
+    else if(v === "Carried") {
+        ledgerData[id].pendingHalf += 0.5;
+        cell.val = 1;
+        cell.leave = "Carried";
+        showLedgerPop("Half Day Carried to Ledger Pending");
+    }
+    else if(v === "Pairing") {
+        let mode = confirm("Press OK for PAID Pairing (Value becomes 1, Deducts 1 Paid Leave)\nPress Cancel for 0 Unpaid Pairing (Value becomes 0)");
+        if(mode) {
+            cell.val = 1;
+            cell.leave = "Paired Paid";
+            ledgerData[id].paidUsed += 1; // -1 on available paid leave balance tracker
+            showLedgerPop("Paired Paid applied (-1 Paid Leave)");
+        } else {
+            cell.val = 0;
+            cell.leave = "Paired Unpaid";
+            showLedgerPop("Paired Unpaid applied");
+        }
+        ledgerData[id].pendingHalf -= 0.5;
+    }
+    else if(v == "Paid"){
+        cell.val = 1;
+        cell.leave = "Paid";
+        ledgerData[id].paidUsed += 1;
+        showLedgerPop("Paid Leave Added");
+    }
+    else if(v == "Unpaid"){
+        cell.val = 0;
+        cell.leave = "Unpaid";
+        showLedgerPop("Unpaid Leave Added");
+    }
+
+    localStorage.setItem("ledger", JSON.stringify(ledgerData));
+    calcSat(id);
+    saveS();
+    render();
+}
+
+function calcSat(id){
+    const y=+yS.value;
+    const m=+mS.value;
+    const days=new Date(y,m+1,0).getDate();
+    const data=attendance[key()][id];
+
+    for(let i=1;i<=days;i++){
+        let d=new Date(y,m,i);
+        if(d.getDay()==6){
+            let ok=true;
+            let protectedByPairing = false;
+
+            for(let k=1;k<=5;k++){
+                let c=new Date(d);
+                c.setDate(d.getDate()-k);
+                let v, leaveType;
+
+                if(c.getMonth()==m){
+                    v=data[c.getDate()]?.val;
+                    leaveType=data[c.getDate()]?.leave;
+                }else{
+                    let prevMonthKey=`${c.getFullYear()}-${c.getMonth()}-${cS.value}`;
+                    v=attendance[prevMonthKey]?.[id]?.[c.getDate()]?.val;
+                    leaveType=attendance[prevMonthKey]?.[id]?.[c.getDate()]?.leave;
+                }
+
+                // Pairing labels block Saturday cuts from taking effect
+                if(leaveType === "Paired Paid" || leaveType === "Paired Unpaid") {
+                    protectedByPairing = true;
+                }
+
+                if(v!=1 && v!=0.5 && leaveType!=="Paid" && leaveType!=="Carried"){
+                    if(leaveType !== "Paired Unpaid" && leaveType !== "Paired Paid") {
+                        ok=false;
+                    }
+                }
+            }
+
+            if(protectedByPairing) {
+                data[i]={ val:1, autoSat:true };
+            }
+            else if(!ok){
+                if(!data[i]?.holiday){
+                    data[i]={ val:0, autoSat:true };
+                    showLedgerPop("Saturday Cut Applied");
+                }
+            }else{
+                data[i]={ val:1, autoSat:true };
+            }
+        }
+    }
+}
+
+function applyHoliday(){
+    let d=holidayInput.value.split(",").map(Number);
+    employees().forEach(e=>
+        d.forEach(day=>{
+            if(day){ attendance[key()][e.id][day]={ val:1, holiday:true }; }
+        })
+    );
+    saveS();
+    render();
+}
+
+function removeHoliday(){
+    let d=holidayInput.value.split(",").map(Number);
+    employees().forEach(e=>
+        d.forEach(day=>{
+            if(attendance[key()][e.id][day]?.holiday){ delete attendance[key()][e.id][day]; }
+        })
+    );
+    saveS();
+    render();
+}
+
+// Keyboard Navigation Support
+document.addEventListener("keydown",function(e){
+    const el=document.activeElement;
+    if(!el.classList.contains("att")) return;
+
+    const td=el.closest("td");
+    const tr=el.closest("tr");
+    const r=tr.rowIndex;
+    const c=td.cellIndex;
+
+    const move=(nr,nc)=>{
+        const target=attTable.rows[nr]?.cells[nc]?.querySelector(".att");
+        if(target){ e.preventDefault(); target.focus(); target.select(); }
+    };
+
+    if(e.key==="ArrowRight" || e.key==="Tab") move(r,c+1);
+    if(e.key==="ArrowLeft") move(r,c-1);
+    if(e.key==="ArrowDown" || e.key==="Enter") move(r+1,c);
+    if(e.key==="ArrowUp") move(r-1,c);
+    if(e.key==="Backspace" && el.value==="") move(r,c-1);
+});
+
+function selectRow(row){
+    document.querySelectorAll("tr").forEach(r=>r.classList.remove("selected-row"));
+    row.classList.add("selected-row");
+    selectedEmpId = row.cells[0].innerText;
+}
+
+function saveS(){ localStorage.setItem("attendance", JSON.stringify(attendance)); }
+function save(){ saveS(); alert("Data Saved Successfully"); }
+
+function downloadExcel(){
+    const table=document.getElementById("attTable");
+    const clone=table.cloneNode(true);
+    clone.querySelectorAll("input").forEach(inp=>{
+        const val=inp.value;
+        const text=document.createTextNode(val);
+        inp.parentNode.replaceChild(text,inp);
+    });
+    const wb = XLSX.utils.table_to_book(clone);
+    XLSX.writeFile(wb, `Attendance_${yS.value}_${parseInt(mS.value)+1}.xlsx`);
+}
+
+yS.onchange=mS.onchange=cS.onchange=render;
+render();
+</script>
+</body>
+</html>
